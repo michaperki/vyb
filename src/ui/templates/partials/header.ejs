@@ -1,0 +1,286 @@
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vibe Code: ${repoName} Visualization</title>
+  <style>
+    ${DEFAULT_STYLES}
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    .header {
+      padding: 1rem;
+      background-color: var(--primary-color);
+      color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header h1 {
+      font-size: 1.5rem;
+      margin: 0;
+    }
+    
+    .header-controls {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .sidebar {
+      width: 300px;
+      padding: 1rem;
+      background-color: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+    
+    .sidebar.collapsed {
+      transform: translateX(-100%);
+    }
+    
+    .toggle-sidebar {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+    
+    .visualization {
+      flex: 1;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .panel {
+      background-color: var(--panel-bg);
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    
+    .panel-header {
+      padding: 0.75rem 1rem;
+      font-weight: bold;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .panel-content {
+      padding: 1rem;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+    
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+    
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-color);
+      opacity: 0.8;
+    }
+    
+    .controls {
+      margin-bottom: 1rem;
+    }
+    
+    .search-box {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+    
+    .file-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+    
+    .file-item {
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+    
+    .file-item:hover {
+      background-color: var(--bg-color);
+    }
+    
+    .file-item.active {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .file-item.selected {
+      background-color: rgba(var(--selection-color-rgb), 0.2);
+    }
+    
+    .file-checkbox {
+      margin-right: 8px;
+    }
+    
+    .node {
+      cursor: pointer;
+      stroke: var(--panel-bg);
+      stroke-width: 1.5px;
+    }
+    
+    .node.selected {
+      fill: var(--selection-color) !important;
+      stroke: white;
+      stroke-width: 2px;
+    }
+    
+    .node text {
+      font-size: 10px;
+      fill: var(--text-color);
+      pointer-events: none;
+    }
+    
+    .link {
+      stroke: var(--link-color);
+      stroke-opacity: 0.6;
+      stroke-width: 1px;
+    }
+    
+    .link.highlighted {
+      stroke: var(--primary-color);
+      stroke-opacity: 1;
+      stroke-width: 2px;
+    }
+    
+    .node.highlighted {
+      stroke: var(--primary-color);
+      stroke-width: 2.5px;
+    }
+    
+    .tooltip {
+      position: absolute;
+      padding: 0.5rem;
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      max-width: 250px;
+      z-index: 100;
+    }
+    
+    .tooltip h3 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .tooltip p {
+      margin: 0.2rem 0;
+      font-size: 0.8rem;
+    }
+    
+    .button {
+      padding: 0.5rem 1rem;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    
+    .button:hover {
+      opacity: 0.9;
+    }
+    
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .button.secondary {
+      background-color: var(--secondary-color);
+    }
+
+    .button.danger {
+      background-color: var(--selection-color);
+    }
+    
+    .selection-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    
+    .switch {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .switch label {
+      cursor: pointer;
+    }
+    
+    @media (max-width: 768px) {
+      .sidebar {
+        position: absolute;
+        height: calc(100% - 60px);
+        top: 60px;
+        z-index: 5;
+      }
+      
+      .header h1 {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>

@@ -1,0 +1,1437 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vibe Code: vibe-code Visualization</title>
+  <style>
+    
+:root {
+  --bg-color: #f8f9fa;
+  --text-color: #333;
+  --primary-color: #4c6ef5;
+  --secondary-color: #7950f2;
+  --link-color: #868e96;
+  --panel-bg: #fff;
+  --border-color: #dee2e6;
+  --selection-color: #fa5252;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #212529;
+    --text-color: #f8f9fa;
+    --primary-color: #748ffc;
+    --secondary-color: #9775fa;
+    --link-color: #adb5bd;
+    --panel-bg: #343a40;
+    --border-color: #495057;
+    --selection-color: #ff6b6b;
+  }
+}
+
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    .header {
+      padding: 1rem;
+      background-color: var(--primary-color);
+      color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header h1 {
+      font-size: 1.5rem;
+      margin: 0;
+    }
+    
+    .header-controls {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .sidebar {
+      width: 300px;
+      padding: 1rem;
+      background-color: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+    
+    .sidebar.collapsed {
+      transform: translateX(-100%);
+    }
+    
+    .toggle-sidebar {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+    
+    .visualization {
+      flex: 1;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .panel {
+      background-color: var(--panel-bg);
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    
+    .panel-header {
+      padding: 0.75rem 1rem;
+      font-weight: bold;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .panel-content {
+      padding: 1rem;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+    
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+    
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-color);
+      opacity: 0.8;
+    }
+    
+    .controls {
+      margin-bottom: 1rem;
+    }
+    
+    .search-box {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+    
+    .file-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+    }
+    
+    .file-item {
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+    
+    .file-item:hover {
+      background-color: var(--bg-color);
+    }
+    
+    .file-item.active {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .file-item.selected {
+      background-color: rgba(var(--selection-color-rgb), 0.2);
+    }
+    
+    .file-checkbox {
+      margin-right: 8px;
+    }
+    
+    .node {
+      cursor: pointer;
+      stroke: var(--panel-bg);
+      stroke-width: 1.5px;
+    }
+    
+    .node.selected {
+      fill: var(--selection-color) !important;
+      stroke: white;
+      stroke-width: 2px;
+    }
+    
+    .node text {
+      font-size: 10px;
+      fill: var(--text-color);
+      pointer-events: none;
+    }
+    
+    .link {
+      stroke: var(--link-color);
+      stroke-opacity: 0.6;
+      stroke-width: 1px;
+    }
+    
+    .link.highlighted {
+      stroke: var(--primary-color);
+      stroke-opacity: 1;
+      stroke-width: 2px;
+    }
+    
+    .node.highlighted {
+      stroke: var(--primary-color);
+      stroke-width: 2.5px;
+    }
+    
+    .tooltip {
+      position: absolute;
+      padding: 0.5rem;
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      max-width: 250px;
+      z-index: 100;
+    }
+    
+    .tooltip h3 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .tooltip p {
+      margin: 0.2rem 0;
+      font-size: 0.8rem;
+    }
+    
+    .button {
+      padding: 0.5rem 1rem;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    
+    .button:hover {
+      opacity: 0.9;
+    }
+    
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .button.secondary {
+      background-color: var(--secondary-color);
+    }
+
+    .button.danger {
+      background-color: var(--selection-color);
+    }
+    
+    .selection-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    
+    .switch {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .switch label {
+      cursor: pointer;
+    }
+    
+    @media (max-width: 768px) {
+      .sidebar {
+        position: absolute;
+        height: calc(100% - 60px);
+        top: 60px;
+        z-index: 5;
+      }
+      
+      .header h1 {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+  
+
+<body>
+  <div class="header">
+    <div class="header-left">
+      <button class="toggle-sidebar">☰</button>
+      <h1>Vibe Code: vibe-code</h1>
+    </div>
+    <div class="header-controls">
+      <button class="button" id="resetZoom">Reset View</button>
+      <select id="layoutSelect" class="search-box">
+        <option value="force">Force Directed</option>
+        <option value="radial">Radial</option>
+        <option value="tree">Hierarchical</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="main-container">
+    
+    <div class="sidebar">
+      
+    <div class="panel">
+      <div class="panel-header">Repository Stats</div>
+      <div class="panel-content">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value">28</div>
+            <div class="stat-label">Files</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">28</div>
+            <div class="stat-label">Dependencies</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">2.4 KB</div>
+            <div class="stat-label">Avg File Size</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">74</div>
+            <div class="stat-label">Avg Lines</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  
+      
+      <div class="panel">
+        <div class="panel-header">
+          <span>Selection</span>
+        </div>
+        <div class="panel-content">
+          <div id="selectionCount">0 files selected</div>
+          <div class="selection-actions">
+            <button class="button" id="selectConnected" disabled>Select Connected</button>
+            <button class="button" id="clearSelection" disabled>Clear</button>
+          </div>
+          <div class="selection-actions">
+            <button class="button secondary" id="exportSelection" disabled>Export for LLM</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">
+          <span>Find File</span>
+        </div>
+        <div class="panel-content">
+          <input type="text" class="search-box" id="fileSearch" placeholder="Search files...">
+          <div class="file-list" id="fileList"></div>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">
+          <span>Settings</span>
+        </div>
+        <div class="panel-content">
+          <div class="switch">
+            <input type="checkbox" id="showLabels" checked>
+            <label for="showLabels">Show File Labels</label>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="groupByFolder" checked>
+            <label for="groupByFolder">Group by Folder</label>
+          </div>
+          <div class="switch">
+            <input type="checkbox" id="sizeByLines">
+            <label for="sizeByLines">Size by Line Count</label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">
+          <span>Most Connected Files</span>
+        </div>
+        <div class="panel-content">
+          <h4>Most Imported</h4>
+          <ul id="mostImported"></ul>
+          <h4>Most Importing</h4>
+          <ul id="mostImporting"></ul>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">
+          <span>Selected File</span>
+        </div>
+        <div class="panel-content" id="fileDetails">
+          <p>No file selected</p>
+        </div>
+      </div>
+    </div>
+  
+    <div id="visualization" class="visualization"></div>
+  </div>
+  
+  <div class="tooltip" id="tooltip"></div>
+  
+  <script>
+    
+    // Load the data
+    const data = {"nodes":[{"id":0,"name":"src/cli/apply.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/apply.js","basename":"apply.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":1347,"sizeFormatted":"1.3 KB","lastModified":"2025-04-29T05:31:51.367Z","lastModifiedFormatted":"2025-04-29T05:31:51.367Z","lineCount":41},{"id":1,"name":"src/cli/debug.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/debug.js","basename":"debug.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":345,"sizeFormatted":"345.0 B","lastModified":"2025-04-29T05:30:42.395Z","lastModifiedFormatted":"2025-04-29T05:30:42.395Z","lineCount":14},{"id":2,"name":"src/cli/export.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/export.js","basename":"export.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":2287,"sizeFormatted":"2.2 KB","lastModified":"2025-04-29T05:31:17.736Z","lastModifiedFormatted":"2025-04-29T05:31:17.736Z","lineCount":61},{"id":3,"name":"src/cli/index.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/index.js","basename":"index.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":1551,"sizeFormatted":"1.5 KB","lastModified":"2025-04-29T06:35:40.873Z","lastModifiedFormatted":"2025-04-29T06:35:40.873Z","lineCount":46},{"id":4,"name":"src/cli/init.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/init.js","basename":"init.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":409,"sizeFormatted":"409.0 B","lastModified":"2025-04-29T05:30:29.993Z","lastModifiedFormatted":"2025-04-29T05:30:29.993Z","lineCount":15},{"id":5,"name":"src/cli/process.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/process.js","basename":"process.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":1901,"sizeFormatted":"1.9 KB","lastModified":"2025-04-29T05:31:36.118Z","lastModifiedFormatted":"2025-04-29T05:31:36.118Z","lineCount":52},{"id":6,"name":"src/cli/review.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/review.js","basename":"review.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":1532,"sizeFormatted":"1.5 KB","lastModified":"2025-04-29T05:31:45.403Z","lastModifiedFormatted":"2025-04-29T05:31:45.403Z","lineCount":44},{"id":7,"name":"src/cli/stats.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/cli/stats.js","basename":"stats.js","directory":"src/cli","group":2,"extension":".js","language":"js","size":1516,"sizeFormatted":"1.5 KB","lastModified":"2025-04-29T05:31:09.815Z","lastModifiedFormatted":"2025-04-29T05:31:09.815Z","lineCount":48},{"id":8,"name":"src/core/analyzer.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/core/analyzer.js","basename":"analyzer.js","directory":"src/core","group":2,"extension":".js","language":"js","size":9739,"sizeFormatted":"9.5 KB","lastModified":"2025-04-29T05:32:53.144Z","lastModifiedFormatted":"2025-04-29T05:32:53.144Z","lineCount":303},{"id":9,"name":"src/core/config.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/core/config.js","basename":"config.js","directory":"src/core","group":2,"extension":".js","language":"js","size":1611,"sizeFormatted":"1.6 KB","lastModified":"2025-04-29T05:28:52.266Z","lastModifiedFormatted":"2025-04-29T05:28:52.266Z","lineCount":61},{"id":10,"name":"src/core/exporter.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/core/exporter.js","basename":"exporter.js","directory":"src/core","group":2,"extension":".js","language":"js","size":8302,"sizeFormatted":"8.1 KB","lastModified":"2025-04-29T05:32:45.469Z","lastModifiedFormatted":"2025-04-29T05:32:45.469Z","lineCount":249},{"id":11,"name":"src/core/scanner.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/core/scanner.js","basename":"scanner.js","directory":"src/core","group":2,"extension":".js","language":"js","size":3105,"sizeFormatted":"3.0 KB","lastModified":"2025-04-29T05:32:27.523Z","lastModifiedFormatted":"2025-04-29T05:32:27.523Z","lineCount":113},{"id":12,"name":"src/core/suggester.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/core/suggester.js","basename":"suggester.js","directory":"src/core","group":2,"extension":".js","language":"js","size":15092,"sizeFormatted":"14.7 KB","lastModified":"2025-04-29T05:32:37.806Z","lastModifiedFormatted":"2025-04-29T05:32:37.806Z","lineCount":482},{"id":13,"name":"src/ui/public/js/review-runtime.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/public/js/review-runtime.js","basename":"review-runtime.js","directory":"src/ui/public/js","group":4,"extension":".js","language":"js","size":7389,"sizeFormatted":"7.2 KB","lastModified":"2025-04-29T06:18:13.874Z","lastModifiedFormatted":"2025-04-29T06:18:13.874Z","lineCount":199},{"id":14,"name":"src/ui/public/js/viz-runtime.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/public/js/viz-runtime.js","basename":"viz-runtime.js","directory":"src/ui/public/js","group":4,"extension":".js","language":"js","sizeFormatted":"0.0 B","lastModified":"2025-04-29T05:28:17.949Z","lastModifiedFormatted":"2025-04-29T05:28:17.949Z","lineCount":1},{"id":15,"name":"src/ui/server.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/server.js","basename":"server.js","directory":"src/ui","group":2,"extension":".js","language":"js","sizeFormatted":"0.0 B","lastModified":"2025-04-29T05:28:17.918Z","lastModifiedFormatted":"2025-04-29T05:28:17.918Z","lineCount":1},{"id":16,"name":"src/ui/visualization/components/body.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/components/body.js","basename":"body.js","directory":"src/ui/visualization/components","group":4,"extension":".js","language":"js","size":459,"sizeFormatted":"459.0 B","lastModified":"2025-04-29T06:28:15.990Z","lastModifiedFormatted":"2025-04-29T06:28:15.990Z","lineCount":16},{"id":17,"name":"src/ui/visualization/components/header.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/components/header.js","basename":"header.js","directory":"src/ui/visualization/components","group":4,"extension":".js","language":"js","size":548,"sizeFormatted":"548.0 B","lastModified":"2025-04-29T05:42:09.339Z","lastModifiedFormatted":"2025-04-29T05:42:09.339Z","lineCount":23},{"id":18,"name":"src/ui/visualization/components/javascript.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/components/javascript.js","basename":"javascript.js","directory":"src/ui/visualization/components","group":4,"extension":".js","language":"js","size":421,"sizeFormatted":"421.0 B","lastModified":"2025-04-29T06:28:25.313Z","lastModifiedFormatted":"2025-04-29T06:28:25.313Z","lineCount":16},{"id":19,"name":"src/ui/visualization/components/sidebar.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/components/sidebar.js","basename":"sidebar.js","directory":"src/ui/visualization/components","group":4,"extension":".js","language":"js","size":555,"sizeFormatted":"555.0 B","lastModified":"2025-04-29T05:43:09.653Z","lastModifiedFormatted":"2025-04-29T05:43:09.653Z","lineCount":26},{"id":20,"name":"src/ui/visualization/components/stats-panel.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/components/stats-panel.js","basename":"stats-panel.js","directory":"src/ui/visualization/components","group":4,"extension":".js","language":"js","size":615,"sizeFormatted":"615.0 B","lastModified":"2025-04-29T05:44:14.661Z","lastModifiedFormatted":"2025-04-29T05:44:14.661Z","lineCount":26},{"id":21,"name":"src/ui/visualization/index.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/index.js","basename":"index.js","directory":"src/ui/visualization","group":3,"extension":".js","language":"js","size":407,"sizeFormatted":"407.0 B","lastModified":"2025-04-29T04:07:18.778Z","lastModifiedFormatted":"2025-04-29T04:07:18.778Z","lineCount":13},{"id":22,"name":"src/ui/visualization/review-interface.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/review-interface.js","basename":"review-interface.js","directory":"src/ui/visualization","group":3,"extension":".js","language":"js","size":791,"sizeFormatted":"791.0 B","lastModified":"2025-04-29T06:19:38.503Z","lastModifiedFormatted":"2025-04-29T06:19:38.503Z","lineCount":30},{"id":23,"name":"src/ui/visualization/stats-generator.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/stats-generator.js","basename":"stats-generator.js","directory":"src/ui/visualization","group":3,"extension":".js","language":"js","size":2403,"sizeFormatted":"2.3 KB","lastModified":"2025-04-29T06:31:03.853Z","lastModifiedFormatted":"2025-04-29T06:31:03.853Z","lineCount":77},{"id":24,"name":"src/ui/visualization/visualization-generator.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/ui/visualization/visualization-generator.js","basename":"visualization-generator.js","directory":"src/ui/visualization","group":3,"extension":".js","language":"js","size":701,"sizeFormatted":"701.0 B","lastModified":"2025-04-29T06:38:34.877Z","lastModifiedFormatted":"2025-04-29T06:38:34.877Z","lineCount":26},{"id":25,"name":"src/utils/constants.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/utils/constants.js","basename":"constants.js","directory":"src/utils","group":2,"extension":".js","language":"js","size":1408,"sizeFormatted":"1.4 KB","lastModified":"2025-04-29T06:31:26.262Z","lastModifiedFormatted":"2025-04-29T06:31:26.262Z","lineCount":65},{"id":26,"name":"src/utils/formatting.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/utils/formatting.js","basename":"formatting.js","directory":"src/utils","group":2,"extension":".js","language":"js","size":306,"sizeFormatted":"306.0 B","lastModified":"2025-04-29T05:29:05.231Z","lastModifiedFormatted":"2025-04-29T05:29:05.231Z","lineCount":17},{"id":27,"name":"src/utils/path-utils.js","path":"/mnt/c/Users/PerkD/documents/dev/vibes/vibe-code-v03/vibe-code/src/utils/path-utils.js","basename":"path-utils.js","directory":"src/utils","group":2,"extension":".js","language":"js","size":273,"sizeFormatted":"273.0 B","lastModified":"2025-04-29T05:29:18.711Z","lastModifiedFormatted":"2025-04-29T05:29:18.711Z","lineCount":19}],"links":[{"source":0,"target":12,"type":"import","value":1},{"source":1,"target":9,"type":"import","value":1},{"source":2,"target":9,"type":"import","value":1},{"source":2,"target":11,"type":"import","value":1},{"source":2,"target":8,"type":"import","value":1},{"source":2,"target":10,"type":"import","value":1},{"source":3,"target":4,"type":"import","value":1},{"source":3,"target":1,"type":"import","value":1},{"source":3,"target":9,"type":"import","value":1},{"source":3,"target":11,"type":"import","value":1},{"source":3,"target":8,"type":"import","value":1},{"source":3,"target":21,"type":"import","value":1},{"source":4,"target":9,"type":"import","value":1},{"source":5,"target":12,"type":"import","value":1},{"source":6,"target":21,"type":"import","value":1},{"source":7,"target":9,"type":"import","value":1},{"source":7,"target":11,"type":"import","value":1},{"source":7,"target":8,"type":"import","value":1},{"source":16,"target":18,"type":"import","value":1},{"source":17,"target":25,"type":"import","value":1},{"source":20,"target":26,"type":"import","value":1},{"source":21,"target":24,"type":"import","value":1},{"source":21,"target":23,"type":"import","value":1},{"source":21,"target":22,"type":"import","value":1},{"source":22,"target":25,"type":"import","value":1},{"source":22,"target":27,"type":"import","value":1},{"source":23,"target":26,"type":"import","value":1},{"source":24,"target":25,"type":"import","value":1}],"metadata":{"totalFiles":28,"filesByType":{".js":28},"filesByDirectory":{"src/cli":8,"src/core":5,"src/ui/public/js":2,"src/ui":1,"src/ui/visualization/components":5,"src/ui/visualization":4,"src/utils":3},"averageFileSize":2500.5,"averageLineCount":74.42857142857143,"totalImports":28,"averageImportsPerFile":1,"mostImported":[{"file":"src/core/config.js","count":5},{"file":"src/core/analyzer.js","count":3},{"file":"src/core/scanner.js","count":3},{"file":"src/utils/constants.js","count":3},{"file":"src/core/suggester.js","count":2}],"mostImporting":[{"file":"src/cli/index.js","count":6},{"file":"src/cli/export.js","count":4},{"file":"src/cli/stats.js","count":3},{"file":"src/ui/visualization/index.js","count":3},{"file":"src/ui/visualization/review-interface.js","count":2}]}};
+    
+    // DOM elements
+    const visualization = document.getElementById('visualization');
+    const tooltip = document.getElementById('tooltip');
+    const fileList = document.getElementById('fileList');
+    const fileSearch = document.getElementById('fileSearch');
+    const mostImported = document.getElementById('mostImported');
+    const mostImporting = document.getElementById('mostImporting');
+    const fileDetails = document.getElementById('fileDetails');
+    const toggleSidebar = document.querySelector('.toggle-sidebar');
+    const sidebar = document.querySelector('.sidebar');
+    const resetZoom = document.getElementById('resetZoom');
+    const layoutSelect = document.getElementById('layoutSelect');
+    const showLabels = document.getElementById('showLabels');
+    const groupByFolder = document.getElementById('groupByFolder');
+    const sizeByLines = document.getElementById('sizeByLines');
+    
+    // Selection elements
+    const selectionCount = document.getElementById('selectionCount');
+    const selectConnected = document.getElementById('selectConnected');
+    const clearSelection = document.getElementById('clearSelection');
+    const exportSelection = document.getElementById('exportSelection');
+    
+    // Selection tracking
+    let selectedFiles = new Set();
+    let focusedNode = null;
+    
+    // Path module helpers (simplified) - Define this BEFORE it's used
+    const path = {
+      basename: function(p) {
+        return p.split('/').pop();
+      },
+      dirname: function(p) {
+        const parts = p.split('/');
+        parts.pop();
+        return parts.join('/') || '.';
+      }
+    };
+    
+    // Convert hex color to RGB components
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null;
+    }
+    
+    // Get selection color as RGB
+    const selectionColor = getComputedStyle(document.documentElement).getPropertyValue('--selection-color').trim();
+    const selectionColorRgb = hexToRgb(selectionColor) || {r: 250, g: 82, b: 82};
+    document.documentElement.style.setProperty('--selection-color-rgb', `${selectionColorRgb.r}, ${selectionColorRgb.g}, ${selectionColorRgb.b}`);
+    
+    // Track current state
+    let currentLayout = 'force';
+    let currentZoom = { k: 1, x: 0, y: 0 };
+    
+    // Graph variables
+    let svg, container, simulation, link, node, nodeGroups;
+    
+    // Initialize the visualization
+    initVisualization();
+    
+    // Fill file list
+    populateFileList();
+    
+    // Fill most connected lists
+    populateMostConnected();
+    
+    // Toggle sidebar
+    toggleSidebar.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+    });
+    
+    // Reset zoom
+    resetZoom.addEventListener('click', () => {
+      resetView();
+    });
+    
+    // Layout change
+    layoutSelect.addEventListener('change', (e) => {
+      currentLayout = e.target.value;
+      updateLayout();
+    });
+    
+    // Show/hide labels
+    showLabels.addEventListener('change', (e) => {
+      d3.selectAll('.node-label')
+        .style('display', e.target.checked ? 'block' : 'none');
+    });
+    
+    // Group by folder
+    groupByFolder.addEventListener('change', (e) => {
+      updateLayout();
+    });
+    
+    // Size by lines
+    sizeByLines.addEventListener('change', (e) => {
+      updateNodeSizes();
+    });
+    
+    // Selection actions
+    selectConnected.addEventListener('click', selectConnectedNodes);
+    clearSelection.addEventListener('click', clearAllSelections);
+    exportSelection.addEventListener('click', exportSelectionForLLM);
+    
+    // Search functionality
+    fileSearch.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      const items = fileList.querySelectorAll('.file-item');
+      
+      items.forEach(item => {
+        const fileName = item.textContent.toLowerCase();
+        if (fileName.includes(searchTerm)) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+    
+    /**
+     * Initialize the visualization
+     */
+    function initVisualization() {
+      // Set up the SVG
+      const width = visualization.clientWidth;
+      const height = visualization.clientHeight;
+      
+      svg = d3.select('#visualization')
+        .append('svg')
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('viewBox', [0, 0, width, height])
+        .on('click', () => {
+          // Clicking on empty space deselects focused node
+          if (focusedNode) {
+            focusedNode = null;
+            d3.selectAll('.node').classed('highlighted', false);
+            d3.selectAll('.link').classed('highlighted', false);
+            fileDetails.innerHTML = '<p>No file selected</p>';
+          }
+        });
+      
+      // Create a container for zooming
+      container = svg.append('g');
+      
+      // Add zoom behavior
+      const zoom = d3.zoom()
+        .scaleExtent([0.1, 8])
+        .on('zoom', (event) => {
+          currentZoom = event.transform;
+          container.attr('transform', event.transform);
+        });
+      
+      svg.call(zoom);
+      
+      // Create the force simulation
+      simulation = d3.forceSimulation(data.nodes)
+        .force('link', d3.forceLink(data.links).id(d => d.id).distance(100))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 5));
+      
+      // Draw links
+      link = container.append('g')
+        .selectAll('line')
+        .data(data.links)
+        .enter()
+        .append('line')
+        .attr('class', 'link');
+      
+      // Create node groups
+      nodeGroups = container.append('g')
+        .selectAll('.node-group')
+        .data(data.nodes)
+        .enter()
+        .append('g')
+        .attr('class', 'node-group')
+        .call(d3.drag()
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended))
+        .on('mouseover', showTooltip)
+        .on('mouseout', hideTooltip)
+        .on('click', handleNodeClick);
+      
+      // Add node circles
+      node = nodeGroups.append('circle')
+        .attr('class', 'node')
+        .attr('r', d => getNodeRadius(d))
+        .attr('fill', d => getNodeColor(d));
+      
+      // Add labels
+      nodeGroups.append('text')
+        .attr('class', 'node-label')
+        .attr('dx', 12)
+        .attr('dy', '.35em')
+        .text(d => d.basename);
+      
+      // Update positions during simulation
+      simulation.on('tick', () => {
+        link
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+        
+        nodeGroups
+          .attr('transform', d => `translate(${d.x}, ${d.y})`);
+      });
+    }
+    
+    /**
+     * Handle node click - focus or select
+     */
+    function handleNodeClick(event, d) {
+      event.stopPropagation();
+      
+      // Check for ctrl/cmd key for multi-select
+      if (event.ctrlKey || event.metaKey) {
+        toggleFileSelection(d.id);
+      } else {
+        // Single click without modifier focuses the node
+        focusNode(d, this);
+      }
+    }
+    
+    /**
+     * Toggle file selection
+     */
+    function toggleFileSelection(fileId) {
+      if (selectedFiles.has(fileId)) {
+        selectedFiles.delete(fileId);
+      } else {
+        selectedFiles.add(fileId);
+      }
+      
+      updateSelectionUI();
+    }
+    
+    /**
+     * Update selection UI elements based on current selection
+     */
+    function updateSelectionUI() {
+      const count = selectedFiles.size;
+      
+      // Update count display
+      selectionCount.textContent = `${count} file${count !== 1 ? 's' : ''} selected`;
+      
+      // Enable/disable buttons
+      selectConnected.disabled = count === 0;
+      clearSelection.disabled = count === 0;
+      exportSelection.disabled = count === 0;
+      
+      // Update node visuals
+      d3.selectAll('.node').classed('selected', d => selectedFiles.has(d.id));
+      
+      // Update file list
+      const fileItems = fileList.querySelectorAll('.file-item');
+      fileItems.forEach(item => {
+        const id = parseInt(item.dataset.id);
+        item.classList.toggle('selected', selectedFiles.has(id));
+        const checkbox = item.querySelector('.file-checkbox');
+        if (checkbox) checkbox.checked = selectedFiles.has(id);
+      });
+    }
+    
+    /**
+     * Select connected nodes (nodes that import or are imported by selected nodes)
+     */
+    function selectConnectedNodes() {
+      if (selectedFiles.size === 0) return;
+      
+      const connectedNodes = new Set(selectedFiles);
+      
+      // Find all nodes connected to the selected nodes
+      data.links.forEach(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        
+        if (selectedFiles.has(sourceId)) {
+          connectedNodes.add(targetId);
+        }
+        
+        if (selectedFiles.has(targetId)) {
+          connectedNodes.add(sourceId);
+        }
+      });
+      
+      // Update selected files
+      selectedFiles = connectedNodes;
+      updateSelectionUI();
+    }
+    
+    /**
+     * Clear all selections
+     */
+    function clearAllSelections() {
+      selectedFiles.clear();
+      updateSelectionUI();
+    }
+    
+    /**
+     * Export selection for LLM
+     */
+    function exportSelectionForLLM() {
+      if (selectedFiles.size === 0) return;
+      
+      // Create a JSON object with selection info
+      const selection = {
+        files: Array.from(selectedFiles).map(id => {
+          const node = data.nodes.find(n => n.id === id);
+          return {
+            id: node.id,
+            path: node.name
+          };
+        }),
+        repoName: 'vibe-code',
+        timestamp: new Date().toISOString()
+      };
+      
+      // Create a data URL and download
+      const jsonStr = JSON.stringify(selection, null, 2);
+      const dataUrl = 'data:text/json;charset=utf-8,' + encodeURIComponent(jsonStr);
+      
+      const link = document.createElement('a');
+      link.setAttribute('href', dataUrl);
+      link.setAttribute('download', 'vibe-selection.json');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Show success message
+      alert(`Selection of ${selectedFiles.size} files exported to vibe-selection.json`);
+    }
+    
+    /**
+     * Focus on a specific node and show its details
+     */
+    function focusNode(d, element) {
+      // Clear previous focus
+      if (focusedNode) {
+        d3.selectAll('.node').classed('highlighted', false);
+        d3.selectAll('.link').classed('highlighted', false);
+      }
+      
+      focusedNode = focusedNode === d ? null : d;
+      
+      if (focusedNode) {
+        // Highlight focused node
+        d3.select(element).select('.node').classed('highlighted', true);
+        
+        // Find connected links and nodes
+        const connectedLinks = [];
+        const connectedNodes = new Set();
+        
+        // Find incoming links (node is target)
+        data.links.forEach(link => {
+          const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+          const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+          
+          if (targetId === d.id) {
+            connectedLinks.push(link);
+            connectedNodes.add(sourceId);
+          } else if (sourceId === d.id) {
+            connectedLinks.push(link);
+            connectedNodes.add(targetId);
+          }
+        });
+        
+        // Highlight connected links
+        d3.selectAll('.link').classed('highlighted', l => {
+          const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+          const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+          return sourceId === d.id || targetId === d.id;
+        });
+        
+        // Highlight connected nodes
+        d3.selectAll('.node').classed('highlighted', n => connectedNodes.has(n.id));
+        
+        // Show details
+        showFileDetails(d, connectedLinks, connectedNodes);
+      } else {
+        // Clear details
+        fileDetails.innerHTML = `<p>No file selected</p>`;
+      }
+    }
+    
+    /**
+     * Update the layout based on the selected layout type
+     */
+    function updateLayout() {
+      // Stop the current simulation
+      simulation.stop();
+      
+      // Update forces based on layout
+      switch (currentLayout) {
+        case 'radial':
+          createRadialLayout();
+          break;
+        case 'tree':
+          createTreeLayout();
+          break;
+        case 'force':
+        default:
+          createForceLayout();
+          break;
+      }
+      
+      // Reset view
+      resetView();
+    }
+    
+    /**
+     * Create a force-directed layout
+     */
+    function createForceLayout() {
+      // Get container dimensions
+      const width = visualization.clientWidth;
+      const height = visualization.clientHeight;
+      
+      // Update the simulation with force-directed forces
+      simulation
+        .force('link', d3.forceLink(data.links).id(d => d.id).distance(100))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 5));
+      
+      if (groupByFolder.checked) {
+        // Group by folder
+        const folderGroups = {};
+        data.nodes.forEach(node => {
+          const folder = node.directory;
+          if (!folderGroups[folder]) {
+            folderGroups[folder] = {
+              x: Math.random() * width,
+              y: Math.random() * height,
+              nodes: []
+            };
+          }
+          folderGroups[folder].nodes.push(node);
+        });
+        
+        // Add force to group by folder
+        simulation.force('group', d3.forceRadial(d => {
+          const folder = d.directory;
+          const group = folderGroups[folder];
+          return 50; // Radius within the group
+        }).strength(0.8).x(d => {
+          const folder = d.directory;
+          const group = folderGroups[folder];
+          return group.x;
+        }).y(d => {
+          const folder = d.directory;
+          const group = folderGroups[folder];
+          return group.y;
+        }));
+      } else {
+        simulation.force('group', null);
+      }
+      
+      // Restart the simulation
+      simulation.alpha(1).restart();
+    }
+    
+    /**
+     * Create a radial layout
+     */
+    function createRadialLayout() {
+      // Get container dimensions
+      const width = visualization.clientWidth;
+      const height = visualization.clientHeight;
+      const radius = Math.min(width, height) / 2 - 100;
+      
+      // Group nodes if needed
+      let groups;
+      if (groupByFolder.checked) {
+        // Group by directory
+        groups = {};
+        data.nodes.forEach(node => {
+          const group = node.directory;
+          if (!groups[group]) {
+            groups[group] = [];
+          }
+          groups[group].push(node);
+        });
+      } else {
+        // Group by depth level
+        groups = {};
+        data.nodes.forEach(node => {
+          const group = node.group;
+          if (!groups[group]) {
+            groups[group] = [];
+          }
+          groups[group].push(node);
+        });
+      }
+      
+      // Position nodes on concentric circles
+      const groupOrder = Object.keys(groups).sort();
+      const groupCount = groupOrder.length;
+      
+      groupOrder.forEach((group, i) => {
+        const nodes = groups[group];
+        const groupRadius = ((i + 1) / groupCount) * radius;
+        const angleStep = (2 * Math.PI) / nodes.length;
+        
+        nodes.forEach((node, j) => {
+          const angle = j * angleStep;
+          node.x = width / 2 + groupRadius * Math.cos(angle);
+          node.y = height / 2 + groupRadius * Math.sin(angle);
+          node.fx = node.x;
+          node.fy = node.y;
+        });
+      });
+      
+      // Use very weak forces just to avoid overlap
+      simulation
+        .force('link', d3.forceLink(data.links).id(d => d.id).strength(0.05))
+        .force('charge', d3.forceManyBody().strength(-10))
+        .force('center', d3.forceCenter(width / 2, height / 2).strength(0.1))
+        .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 2).strength(0.7))
+        .force('group', null);
+      
+      // Run a few ticks to adjust positions slightly
+      simulation.alpha(0.3).restart();
+      for (let i = 0; i < 300; i++) {
+        simulation.tick();
+      }
+    }
+    
+    /**
+     * Create a hierarchical (tree) layout
+     */
+    function createTreeLayout() {
+      // Get container dimensions
+      const width = visualization.clientWidth;
+      const height = visualization.clientHeight;
+      
+      // Release fixed positions from previous layouts
+      data.nodes.forEach(node => {
+        node.fx = null;
+        node.fy = null;
+      });
+      
+      // Find root nodes (nodes with no incoming links)
+      const targetCounts = {};
+      data.links.forEach(link => {
+        if (!targetCounts[link.target.id]) {
+          targetCounts[link.target.id] = 0;
+        }
+        targetCounts[link.target.id]++;
+      });
+      
+      const rootNodes = data.nodes.filter(node => !targetCounts[node.id]);
+      
+      // If no root nodes, use the node with the most outgoing links
+      let roots = rootNodes;
+      if (roots.length === 0) {
+        const sourceCounts = {};
+        data.links.forEach(link => {
+          if (!sourceCounts[link.source.id]) {
+            sourceCounts[link.source.id] = 0;
+          }
+          sourceCounts[link.source.id]++;
+        });
+        
+        let maxCount = 0;
+        let maxNode = null;
+        Object.entries(sourceCounts).forEach(([id, count]) => {
+          if (count > maxCount) {
+            maxCount = count;
+            maxNode = data.nodes.find(n => n.id == id);
+          }
+        });
+        
+        if (maxNode) {
+          roots = [maxNode];
+        } else {
+          roots = [data.nodes[0]]; // Fallback to first node
+        }
+      }
+      
+      // Position root nodes at the top
+      const rootCount = roots.length;
+      const rootSpacing = width / (rootCount + 1);
+      
+      roots.forEach((root, i) => {
+        root.x = (i + 1) * rootSpacing;
+        root.y = 100;
+        root.fx = root.x;
+        root.fy = root.y;
+      });
+      
+      // Create a graph representation for tree traversal
+      const graph = {};
+      data.nodes.forEach(node => {
+        graph[node.id] = {
+          node: node,
+          children: []
+        };
+      });
+      
+      data.links.forEach(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        graph[sourceId].children.push(targetId);
+      });
+      
+      // Assign levels through breadth-first traversal
+      const visited = new Set();
+      const queue = roots.map(root => ({
+        node: root,
+        level: 0,
+        position: {
+          x: root.x,
+          y: root.y
+        }
+      }));
+      
+      while (queue.length > 0) {
+        const { node, level, position } = queue.shift();
+        
+        if (visited.has(node.id)) continue;
+        visited.add(node.id);
+        
+        // Fix position
+        node.fx = position.x;
+        node.fy = position.y;
+        
+        // Add children to queue
+        const children = graph[node.id].children;
+        const childCount = children.length;
+        
+        if (childCount > 0) {
+          const childSpacing = 200 / (childCount + 1);
+          const startOffset = -100 + childSpacing;
+          
+          children.forEach((childId, i) => {
+            const childNode = data.nodes.find(n => n.id === childId);
+            if (childNode && !visited.has(childId)) {
+              queue.push({
+                node: childNode,
+                level: level + 1,
+                position: {
+                  x: position.x + startOffset + i * childSpacing,
+                  y: position.y + 120
+                }
+              });
+            }
+          });
+        }
+      }
+      
+      // Use very weak forces to avoid overlap
+      simulation
+        .force('link', d3.forceLink(data.links).id(d => d.id).strength(0.1))
+        .force('charge', d3.forceManyBody().strength(-50))
+        .force('center', null)
+        .force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 5).strength(0.7))
+        .force('y', d3.forceY(d => d.fy || height / 2).strength(0.1))
+        .force('group', null);
+      
+      // Run a few ticks to adjust positions slightly
+      simulation.alpha(0.3).restart();
+      for (let i = 0; i < 100; i++) {
+        simulation.tick();
+      }
+    }
+    
+    /**
+     * Get the radius for a node based on its properties
+     */
+    function getNodeRadius(d) {
+      if (sizeByLines.checked && d.lineCount) {
+        // Scale based on line count with min and max sizes
+        const minSize = 5;
+        const maxSize = 20;
+        const maxLines = Math.max(...data.nodes.filter(n => n.lineCount).map(n => n.lineCount));
+        return minSize + (d.lineCount / maxLines) * (maxSize - minSize);
+      } else {
+        return 8; // Default size
+      }
+    }
+    
+    /**
+     * Update node sizes when settings change
+     */
+    function updateNodeSizes() {
+      d3.selectAll('.node')
+        .attr('r', d => getNodeRadius(d));
+      
+      // Update collision radius
+      simulation.force('collision', d3.forceCollide().radius(d => getNodeRadius(d) + 5));
+      simulation.alpha(0.3).restart();
+    }
+    
+    /**
+     * Get the color for a node based on its properties
+     */
+    function getNodeColor(d) {
+      // Check if the node is selected
+      if (selectedFiles.has(d.id)) {
+        return selectionColor;
+      }
+      
+      // Use the file extension to determine color
+      const extensionColors = {
+        '.js': '#f1e05a', // JavaScript (yellow)
+        '.jsx': '#f1e05a', // JSX (yellow)
+        '.ts': '#3178c6', // TypeScript (blue)
+        '.tsx': '#3178c6', // TSX (blue)
+        '.vue': '#41b883', // Vue (green)
+        '.css': '#563d7c', // CSS (purple)
+        '.scss': '#c6538c', // SCSS (pink)
+        '.html': '#e34c26', // HTML (orange)
+        '.json': '#292929', // JSON (dark)
+        '.md': '#083fa1'    // Markdown (navy)
+      };
+      
+      return extensionColors[d.extension] || '#6c757d'; // Default gray
+    }
+    
+    /**
+     * Show tooltip on node hover
+     */
+    function showTooltip(event, d) {
+      const content = `
+        <h3>${d.basename}</h3>
+        <p><strong>Path:</strong> ${d.name}</p>
+        ${d.lineCount ? `<p><strong>Lines:</strong> ${d.lineCount}</p>` : ''}
+        ${d.sizeFormatted ? `<p><strong>Size:</strong> ${d.sizeFormatted}</p>` : ''}
+        ${d.lastModifiedFormatted ? `<p><strong>Modified:</strong> ${new Date(d.lastModifiedFormatted).toLocaleString()}</p>` : ''}
+        <p><em>Ctrl+Click to select</em></p>
+      `;
+      
+      tooltip.innerHTML = content;
+      tooltip.style.left = `${event.pageX + 10}px`;
+      tooltip.style.top = `${event.pageY + 10}px`;
+      tooltip.style.opacity = 1;
+    }
+    
+    /**
+     * Hide tooltip on node mouseout
+     */
+    function hideTooltip() {
+      tooltip.style.opacity = 0;
+    }
+    
+    /**
+     * Show file details in the sidebar
+     */
+    function showFileDetails(file, connectedLinks, connectedNodes) {
+      // Count incoming and outgoing dependencies
+      let imports = 0;
+      let importedBy = 0;
+      
+      connectedLinks.forEach(link => {
+        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+        
+        if (sourceId === file.id) imports++;
+        if (targetId === file.id) importedBy++;
+      });
+      
+      const isSelected = selectedFiles.has(file.id);
+      const selectionButton = isSelected 
+        ? `<button class="button danger" onclick="toggleFileSelection(${file.id})">Deselect</button>`
+        : `<button class="button secondary" onclick="toggleFileSelection(${file.id})">Select</button>`;
+      
+      const content = `
+        <h3>${file.basename}</h3>
+        <p><strong>Full Path:</strong> ${file.name}</p>
+        <p><strong>Directory:</strong> ${file.directory}</p>
+        ${file.lineCount ? `<p><strong>Lines:</strong> ${file.lineCount}</p>` : ''}
+        ${file.sizeFormatted ? `<p><strong>Size:</strong> ${file.sizeFormatted}</p>` : ''}
+        ${file.lastModifiedFormatted ? `<p><strong>Modified:</strong> ${new Date(file.lastModifiedFormatted).toLocaleString()}</p>` : ''}
+        
+        <h4>Dependencies</h4>
+        <p><strong>Imports:</strong> ${imports} files</p>
+        <p><strong>Imported by:</strong> ${importedBy} files</p>
+        
+        <div class="selection-actions">
+          ${selectionButton}
+        </div>
+      `;
+      
+      fileDetails.innerHTML = content;
+      
+      // Highlight in file list
+      const fileItems = fileList.querySelectorAll('.file-item');
+      fileItems.forEach(item => {
+        item.classList.remove('active');
+        if (parseInt(item.dataset.id) === file.id) {
+          item.classList.add('active');
+          item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+    }
+    
+    /**
+     * Populate the file list in the sidebar
+     */
+    function populateFileList() {
+      const filesByDir = {};
+      
+      // Group files by directory
+      data.nodes.forEach(node => {
+        const dir = node.directory;
+        if (!filesByDir[dir]) {
+          filesByDir[dir] = [];
+        }
+        filesByDir[dir].push(node);
+      });
+      
+      // Sort directories
+      const dirs = Object.keys(filesByDir).sort();
+      
+      // Create the HTML
+      let html = '';
+      
+      dirs.forEach(dir => {
+        const files = filesByDir[dir].sort((a, b) => a.basename.localeCompare(b.basename));
+        
+        files.forEach(file => {
+          html += `
+            <div class="file-item" data-id="${file.id}">
+              <input type="checkbox" class="file-checkbox" data-id="${file.id}" />
+              ${file.basename}
+            </div>
+          `;
+        });
+      });
+      
+      fileList.innerHTML = html;
+      
+      // Add click events
+      fileList.querySelectorAll('.file-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          // Only handle the click if it's not on the checkbox
+          if (!e.target.classList.contains('file-checkbox')) {
+            const id = parseInt(item.dataset.id);
+            // Item clicked, focus the node
+            const node = data.nodes.find(n => n.id === id);
+            
+            if (node) {
+              // Find the node in the visualization and focus it
+              nodeGroups.each(function(d) {
+                if (d.id === id) {
+                  focusNode(d, this);
+                  
+                  // Center view on node
+                  centerViewOnNode(d);
+                }
+              });
+            }
+          }
+        });
+      });
+      
+      // Add change events for checkboxes - this is key!
+      fileList.querySelectorAll('.file-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('click', (e) => {
+          // Stop propagation to prevent the file-item click handler from firing
+          e.stopPropagation();
+          
+          const id = parseInt(checkbox.dataset.id);
+          toggleFileSelection(id);
+        });
+      });
+    }
+    
+    /**
+     * Populate the most connected files lists
+     */
+    function populateMostConnected() {
+      if (data.metadata.mostImported) {
+        let html = '';
+        data.metadata.mostImported.forEach(item => {
+          html += `<li>${path.basename(item.file)} (${item.count})</li>`;
+        });
+        mostImported.innerHTML = html;
+      }
+      
+      if (data.metadata.mostImporting) {
+        let html = '';
+        data.metadata.mostImporting.forEach(item => {
+          html += `<li>${path.basename(item.file)} (${item.count})</li>`;
+        });
+        mostImporting.innerHTML = html;
+      }
+    }
+    
+    /**
+     * Center the view on a specific node
+     */
+    function centerViewOnNode(d) {
+      const width = visualization.clientWidth;
+      const height = visualization.clientHeight;
+      
+      const scale = 1.5;
+      const x = width / 2 - d.x * scale;
+      const y = height / 2 - d.y * scale;
+      
+      svg.transition()
+        .duration(750)
+        .call(
+          d3.zoom().transform,
+          d3.zoomIdentity.translate(x, y).scale(scale)
+        );
+    }
+    
+    /**
+     * Reset the view to fit all nodes
+     */
+    function resetView() {
+      const width = visualization.clientWidth;
+      const height = visualization.clientHeight;
+      
+      const bounds = container.node().getBBox();
+      const dx = bounds.width;
+      const dy = bounds.height;
+      const x = bounds.x + dx / 2;
+      const y = bounds.y + dy / 2;
+      
+      const scale = 0.9 / Math.max(dx / width, dy / height);
+      const translate = [width / 2 - scale * x, height / 2 - scale * y];
+      
+      svg.transition()
+        .duration(750)
+        .call(
+          d3.zoom().transform,
+          d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+        );
+    }
+    
+    /**
+     * Handle drag start
+     */
+    function dragstarted(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+    
+    /**
+     * Handle dragging
+     */
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
+    }
+    
+    /**
+     * Handle drag end
+     */
+    function dragended(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      
+      // Don't release fixed position in radial or tree layout
+      if (currentLayout === 'force' && !groupByFolder.checked) {
+        d.fx = null;
+        d.fy = null;
+      }
+    }
+
+    // Helper functions
+    function formatFileSize(size) {
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let unitIndex = 0;
+      let fileSize = size;
+      
+      while (fileSize >= 1024 && unitIndex < units.length - 1) {
+        fileSize /= 1024;
+        unitIndex++;
+      }
+      
+      return `${fileSize.toFixed(1)} ${units[unitIndex]}`;
+    }
+    
+    window.toggleFileSelection = toggleFileSelection;
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      svg.attr('width', visualization.clientWidth)
+         .attr('height', visualization.clientHeight);
+    });
+    
+    // Initial layout
+    simulation.alpha(1).restart();
+  
+  </script>
+</body>
+  
+</html>
+  

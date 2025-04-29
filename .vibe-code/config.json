@@ -1,0 +1,22 @@
+{
+  "excludeDirs": [
+    "node_modules",
+    ".git",
+    ".vibe-code",
+    "dist",
+    "build"
+  ],
+  "fileTypes": [
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".vue"
+  ],
+  "debugMode": false,
+  "metadata": {
+    "showLineCount": true,
+    "showFileSize": true,
+    "showLastModified": true
+  }
+}

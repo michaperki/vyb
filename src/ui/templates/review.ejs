@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <%- include('partials/header', {
+        title: 'Vibe Code: Review Suggestions',
+        extraStyles: `
+          /* diff–specific colors */
+          :root {
+            --success-color: #40c057;
+            --danger-color: #fa5252;
+            /* … */
+          }
+          @media (prefers-color-scheme: dark) {
+            /* … */
+          }
+        `
+      })
+  %>
+
+  <body>
+    <div class="header">
+      <div class="header-left">
+        <button class="toggle-sidebar">☰</button>
+        <h1>Vibe Code: Review Suggestions</h1>
+      </div>
+      <div class="header-controls">
+        <button class="button success" id="applyAll">Apply All</button>
+        <button class="button danger"  id="rejectAll">Reject All</button>
+      </div>
+    </div>
+
+    <div class="main-container">
+      <%- include('partials/sidebar-review', { suggestions }) %>
+
+      <div class="content" id="content">
+        <div class="panel">
+          <div class="panel-header">Review Suggestions</div>
+          <div class="panel-content">
+            <p>Select a file from the sidebar to review suggested changes.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- inject the raw suggestions for client-side -->
+    <script>const SUGGESTIONS = <%- JSON.stringify(suggestions) %>;</script>
+    <script src="/js/review-runtime.js"></script>
+  </body>
+</html>

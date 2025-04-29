@@ -1,0 +1,69 @@
+
+<%- include('partials/stats-panel', { dependencies: dependencies }) %>
+
+<div class="panel">
+  <div class="panel-header">
+    <span>Selection</span>
+  </div>
+  <div class="panel-content">
+    <div id="selectionCount">0 files selected</div>
+    <div class="selection-actions">
+      <button class="button" id="selectConnected" disabled>Select Connected</button>
+      <button class="button" id="clearSelection" disabled>Clear</button>
+    </div>
+    <div class="selection-actions">
+      <button class="button secondary" id="exportSelection" disabled>Export for LLM</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <span>Find File</span>
+  </div>
+  <div class="panel-content">
+    <input type="text" class="search-box" id="fileSearch" placeholder="Search files...">
+    <div class="file-list" id="fileList"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <span>Settings</span>
+  </div>
+  <div class="panel-content">
+    <div class="switch">
+      <input type="checkbox" id="showLabels" checked>
+      <label for="showLabels">Show File Labels</label>
+    </div>
+    <div class="switch">
+      <input type="checkbox" id="groupByFolder" checked>
+      <label for="groupByFolder">Group by Folder</label>
+    </div>
+    <div class="switch">
+      <input type="checkbox" id="sizeByLines">
+      <label for="sizeByLines">Size by Line Count</label>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <span>Most Connected Files</span>
+  </div>
+  <div class="panel-content">
+    <h4>Most Imported</h4>
+    <ul id="mostImported"></ul>
+    <h4>Most Importing</h4>
+    <ul id="mostImporting"></ul>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <span>Selected File</span>
+  </div>
+  <div class="panel-content" id="fileDetails">
+    <p>No file selected</p>
+  </div>
+</div>

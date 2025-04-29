@@ -1,0 +1,12 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <!-- HEADER -->
+  <%- include('partials/header', { repoName, DEFAULT_STYLES }) %>
+
+  <!-- BODY (sidebar + viz container) -->
+  <%- include('partials/body', { dependencies, repoName }) %>
+
+  <!-- D3 + UI SCRIPT LOGIC -->
+  <%- include('partials/scripts', { dependencies, repoName }) %>
+</html>

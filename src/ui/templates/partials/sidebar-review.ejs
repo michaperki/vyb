@@ -1,0 +1,35 @@
+
+<div class="sidebar">
+  <div class="panel">
+    <div class="panel-header">Files</div>
+    <div class="panel-content">
+      <div class="file-list" id="fileList">
+        <% suggestions.files.forEach((file, i) => { %>
+          <div class="file-item" data-index="<%= i %>">
+            <%= pathUtils.basename(file.path) %>
+            <span class="file-badge"><%= file.changes.length %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Summary</div>
+    <div class="panel-content">
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-value"><%= suggestions.files.length %></div>
+          <div class="stat-label">Files</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value"><%= suggestions.files.reduce((sum,f)=>sum+f.changes.length,0) %></div>
+          <div class="stat-label">Changes</div>
+        </div>
+      </div>
+      <div class="summary">
+        <%= suggestions.summary || 'No summary provided by the LLM.' %>
+      </div>
+    </div>
+  </div>
+</div>

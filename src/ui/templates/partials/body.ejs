@@ -1,0 +1,28 @@
+
+<body>
+  <div class="header">
+    <div class="header-left">
+      <button class="toggle-sidebar">☰</button>
+      <h1>Vibe Code: <%= repoName %></h1>
+    </div>
+    <div class="header-controls">
+      <button class="button" id="resetZoom">Reset View</button>
+      <select id="layoutSelect" class="search-box">
+        <option value="force">Force Directed</option>
+        <option value="radial">Radial</option>
+        <option value="tree">Hierarchical</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="main-container">
+    <%- include('partials/sidebar', { dependencies }) %>
+    <div id="visualization" class="visualization"></div>
+  </div>
+  
+  <div class="tooltip" id="tooltip"></div>
+  
+  <script>
+    <%= generateJavaScript(dependencies, repoName) %>
+  </script>
+</body>

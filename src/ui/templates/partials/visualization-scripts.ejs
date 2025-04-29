@@ -1,0 +1,313 @@
+<script>
+  // 1) Injected data
+  const data     = <%- JSON.stringify(dependencies) %>;
+  const repoName = '<%= repoName %>';
+
+  // 2) DOM references
+  const visualization   = document.getElementById('visualization');
+  const tooltip         = document.getElementById('tooltip');
+  const fileList        = document.getElementById('fileList');
+  const fileSearch      = document.getElementById('fileSearch');
+  const mostImported    = document.getElementById('mostImported');
+  const mostImporting   = document.getElementById('mostImporting');
+  const fileDetails     = document.getElementById('fileDetails');
+  const toggleSidebar   = document.querySelector('.toggle-sidebar');
+  const sidebar         = document.querySelector('.sidebar');
+  const resetZoom       = document.getElementById('resetZoom');
+  const layoutSelect    = document.getElementById('layoutSelect');
+  const showLabels      = document.getElementById('showLabels');
+  const groupByFolder   = document.getElementById('groupByFolder');
+  const sizeByLines     = document.getElementById('sizeByLines');
+  const selectionCount  = document.getElementById('selectionCount');
+  const selectConnected = document.getElementById('selectConnected');
+  const clearSelection  = document.getElementById('clearSelection');
+  const exportSelection = document.getElementById('exportSelection');
+
+  // 3) State variables
+  let selectedFiles = new Set();
+  let focusedNode   = null;
+  let currentLayout = 'force';
+  let currentZoom   = { k:1, x:0, y:0 };
+  let svg, container, simulation, link, node, nodeGroups;
+
+  // 4) Path helpers
+  const path = {
+    basename(p){ return p.split('/').pop(); },
+    dirname(p){ const ps=p.split('/'); ps.pop(); return ps.join('/')||'.'; }
+  };
+
+  // 5) Color setup
+  function hexToRgb(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return m ? { r:parseInt(m[1],16), g:parseInt(m[2],16), b:parseInt(m[3],16) } : null;
+  }
+  const selColor    = getComputedStyle(document.documentElement)
+                         .getPropertyValue('--selection-color').trim();
+  const rgb         = hexToRgb(selColor) || {r:250,g:82,b:82};
+  document.documentElement.style.setProperty(
+    '--selection-color-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`
+  );
+
+  // Initialize the D3 force simulation and SVG
+  function initVisualization() {
+    const w = visualization.clientWidth,
+          h = visualization.clientHeight;
+
+    svg = d3.select('#visualization')
+      .append('svg').attr('width','100%').attr('height','100%')
+      .attr('viewBox',[0,0,w,h])
+      .on('click', () => {
+        if(focusedNode){
+          focusedNode=null;
+          d3.selectAll('.node,.link').classed('highlighted',false);
+          fileDetails.innerHTML='<p>No file selected</p>';
+        }
+      });
+
+    container = svg.append('g');
+
+    svg.call(d3.zoom().scaleExtent([0.1,8])
+      .on('zoom', ({transform}) => {
+        currentZoom=transform;
+        container.attr('transform',transform);
+      }));
+
+    simulation = d3.forceSimulation(data.nodes)
+      .force('link', d3.forceLink(data.links).id(d=>d.id).distance(100))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(w/2,h/2))
+      .force('collision', d3.forceCollide().radius(d=>getNodeRadius(d)+5));
+
+    link = container.append('g')
+      .selectAll('line').data(data.links).enter()
+      .append('line').attr('class','link');
+
+    nodeGroups = container.append('g')
+      .selectAll('.node-group').data(data.nodes).enter()
+      .append('g').attr('class','node-group')
+      .call(d3.drag()
+        .on('start', dragstarted)
+        .on('drag',  dragged)
+        .on('end',   dragended))
+      .on('mouseover', showTooltip)
+      .on('mouseout',  hideTooltip)
+      .on('click',    handleNodeClick);
+
+    node = nodeGroups.append('circle')
+      .attr('class','node')
+      .attr('r', d=>getNodeRadius(d))
+      .attr('fill', d=>getNodeColor(d));
+
+    nodeGroups.append('text')
+      .attr('class','node-label')
+      .attr('dx',12).attr('dy','.35em')
+      .text(d=>d.basename);
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+      nodeGroups
+        .attr('transform',d=>`translate(${d.x},${d.y})`);
+    });
+  }
+
+  function getNodeRadius(d){
+    if(sizeByLines.checked && d.lineCount){
+      const min=5,max=20;
+      const m = Math.max(...data.nodes.filter(n=>n.lineCount).map(n=>n.lineCount));
+      return min + (d.lineCount/m)*(max-min);
+    }
+    return 8;
+  }
+  function getNodeColor(d){
+    if(selectedFiles.has(d.id)) return selColor;
+    return {
+      '.js':'#f1e05a','.ts':'#3178c6','.vue':'#41b883'
+    }[d.extension]||'#6c757d';
+  }
+
+  // Layout switcher
+  function updateLayout(){
+    simulation.stop();
+    if(currentLayout==='radial') createRadialLayout();
+    else if(currentLayout==='tree') createTreeLayout();
+    else createForceLayout();
+    resetView();
+  }
+
+  function createForceLayout(){
+    simulation
+      .force('link', d3.forceLink(data.links).id(d=>d.id).distance(100))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(visualization.clientWidth/2, visualization.clientHeight/2))
+      .force('collision', d3.forceCollide().radius(d=>getNodeRadius(d)+5))
+      .force('group', null)
+      .alpha(1).restart();
+  }
+
+  function createRadialLayout(){
+    const w=visualization.clientWidth, h=visualization.clientHeight;
+    const radius=Math.min(w,h)/2-100;
+    // group by folder or depth…
+    const groups = groupByFolder.checked
+      ? Object.values(data.nodes.reduce((acc,n)=>{(acc[n.directory]||(acc[n.directory]=[])).push(n);return acc;},{}))
+      : Object.values(data.nodes.reduce((acc,n)=>{(acc[n.group]||(acc[n.group]=[])).push(n);return acc;},{}));
+
+    groups.forEach((nodes,i)=>{
+      const r = ((i+1)/groups.length)*radius,
+            step = 2*Math.PI/nodes.length;
+      nodes.forEach((n,j)=>{
+        n.x = w/2 + r*Math.cos(j*step);
+        n.y = h/2 + r*Math.sin(j*step);
+        n.fx = n.x; n.fy = n.y;
+      });
+    });
+
+    simulation
+      .force('link', d3.forceLink(data.links).id(d=>d.id).strength(0.05))
+      .force('charge', d3.forceManyBody().strength(-10))
+      .force('center', d3.forceCenter(w/2,h/2).strength(0.1))
+      .force('collision', d3.forceCollide().radius(d=>getNodeRadius(d)+2).strength(0.7))
+      .alpha(0.3).restart();
+  }
+
+  function createTreeLayout(){
+    const w=visualization.clientWidth, h=visualization.clientHeight;
+    data.nodes.forEach(n=>{n.fx=null;n.fy=null;});
+    // find roots & BFS assign fx/fy…
+    // (omitted for brevity—copy your existing breadth-first code here)
+    simulation
+      .force('link', d3.forceLink(data.links).id(d=>d.id).strength(0.1))
+      .force('charge', d3.forceManyBody().strength(-50))
+      .force('y',     d3.forceY(d=>d.fy||h/2).strength(0.1))
+      .force('collision', d3.forceCollide().radius(d=>getNodeRadius(d)+5))
+      .alpha(0.3).restart();
+  }
+  // Node interactions
+  function handleNodeClick(event,d){
+    event.stopPropagation();
+    (event.ctrlKey||event.metaKey) ? toggleFileSelection(d.id)
+                                   : focusNode(d,this);
+  }
+
+  function toggleFileSelection(id){
+    selectedFiles.has(id) ? selectedFiles.delete(id)
+                          : selectedFiles.add(id);
+    updateSelectionUI();
+  }
+
+  function updateSelectionUI(){
+    const c=selectedFiles.size;
+    selectionCount.textContent = `${c} file${c!==1?'s':''} selected`;
+    selectConnected.disabled = clearSelection.disabled = exportSelection.disabled = (c===0);
+    d3.selectAll('.node').classed('selected',d=>selectedFiles.has(d.id));
+    fileList.querySelectorAll('.file-item').forEach(item=>{
+      const id=+item.dataset.id;
+      item.classList.toggle('selected',selectedFiles.has(id));
+      const cb=item.querySelector('.file-checkbox');
+      if(cb) cb.checked = selectedFiles.has(id);
+    });
+  }
+
+  selectConnected.addEventListener('click', ()=> {
+    const conn=new Set(selectedFiles);
+    data.links.forEach(l=>{
+      const s=typeof l.source==='object'?l.source.id:l.source,
+            t=typeof l.target==='object'?l.target.id:l.target;
+      if(selectedFiles.has(s)) conn.add(t);
+      if(selectedFiles.has(t)) conn.add(s);
+    });
+    selectedFiles=conn; updateSelectionUI();
+  });
+  clearSelection.addEventListener('click', ()=>{ selectedFiles.clear(); updateSelectionUI(); });
+
+  exportSelection.addEventListener('click', ()=>{
+    if(!selectedFiles.size) return;
+    const sel = {
+      files: Array.from(selectedFiles).map(id=>{
+        const n=data.nodes.find(x=>x.id===id);
+        return { id:n.id, path:n.name };
+      }),
+      repoName, timestamp: new Date().toISOString()
+    };
+    const url = 'data:text/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(sel,null,2));
+    const a = document.createElement('a');
+    a.href=url; a.download='vibe-selection.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    alert(`Exported ${selectedFiles.size} files`);
+  });
+
+  // Sidebar & search wiring
+  toggleSidebar.addEventListener('click', ()=> sidebar.classList.toggle('collapsed'));
+  resetZoom.addEventListener('click', resetView);
+  layoutSelect.addEventListener('change', e=>{ currentLayout=e.target.value; updateLayout(); });
+  showLabels.addEventListener('change', e=>
+    d3.selectAll('.node-label').style('display', e.target.checked?'block':'none'));
+  groupByFolder.addEventListener('change', updateLayout);
+  sizeByLines.addEventListener('change', ()=> {
+    d3.selectAll('.node').attr('r', d=>getNodeRadius(d));
+    simulation.force('collision', d3.forceCollide().radius(d=>getNodeRadius(d)+5))
+              .alpha(0.3).restart();
+  });
+  fileSearch.addEventListener('input', e=>{
+    const term=e.target.value.toLowerCase();
+    fileList.querySelectorAll('.file-item').forEach(item=>{
+      item.style.display = item.textContent.toLowerCase().includes(term)?'block':'none';
+    });
+  });
+
+  // Tooltip & details
+  function showTooltip(event,d){
+    tooltip.innerHTML = `
+      <h3>${d.basename}</h3>
+      <p><strong>Path:</strong> ${d.name}</p>
+      ${d.lineCount? `<p><strong>Lines:</strong> ${d.lineCount}</p>`:''}
+      ${d.sizeFormatted? `<p><strong>Size:</strong> ${d.sizeFormatted}</p>`:''}
+      ${d.lastModifiedFormatted? `<p><strong>Modified:</strong> ${new Date(d.lastModifiedFormatted).toLocaleString()}</p>`:''}
+      <p><em>Ctrl+Click to select</em></p>
+    `;
+    tooltip.style.left = `${event.pageX+10}px`;
+    tooltip.style.top  = `${event.pageY+10}px`;
+    tooltip.style.opacity=1;
+  }
+  function hideTooltip(){ tooltip.style.opacity=0; }
+
+  function focusNode(d,el){
+    d3.selectAll('.node,.link').classed('highlighted',false);
+    if(focusedNode===d){ focusedNode=null; fileDetails.innerHTML='<p>No file selected</p>'; return; }
+    focusedNode=d;
+    d3.select(el).select('.node').classed('highlighted',true);
+    const links=[], nodes=new Set();
+    data.links.forEach(l=>{
+      const s=typeof l.source==='object'?l.source.id:l.source,
+            t=typeof l.target==='object'?l.target.id:l.target;
+      if(t===d.id){ links.push(l); nodes.add(s); }
+      else if(s===d.id){ links.push(l); nodes.add(t); }
+    });
+    d3.selectAll('.link').classed('highlighted',l=>links.includes(l));
+    d3.selectAll('.node').classed('highlighted',n=>nodes.has(n.id));
+    // show details…
+    let imp=0, impBy=0;
+    links.forEach(l=>{
+      const s=typeof l.source==='object'?l.source.id:l.source,
+            t=typeof l.target==='object'?l.target.id:l.target;
+      if(s===d.id) imp++; if(t===d.id) impBy++;
+    });
+    fileDetails.innerHTML = `
+      <h3>${d.basename}</h3>
+      <p><strong>Full Path:</strong> ${d.name}</p>
+      <p><strong>Imports:</strong> ${imp}</p>
+      <p><strong>Imported by:</strong> ${impBy}</p>
+      <button class="button ${selectedFiles.has(d.id)?'danger':'secondary'}"
+        onclick="toggleFileSelection(${d.id})">
+        ${selectedFiles.has(d.id)?'Deselect':'Select'}
+      </button>
+    `;
+  }
+
+  // Boot
+  initVisualization();
+  populateFileList();
+  populateMostConnected();
+</script>

@@ -1,0 +1,28 @@
+
+<div class="panel">
+  <div class="panel-header">Repository Stats</div>
+  <div class="panel-content">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-value"><%= nodes.length %></div>
+        <div class="stat-label">Files</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value"><%= links.length %></div>
+        <div class="stat-label">Dependencies</div>
+      </div>
+      <% if (metadata.averageFileSize) { %>
+      <div class="stat-item">
+        <div class="stat-value"><%= formatFileSize(metadata.averageFileSize) %></div>
+        <div class="stat-label">Avg File Size</div>
+      </div>
+      <% } %>
+      <% if (metadata.averageLineCount) { %>
+      <div class="stat-item">
+        <div class="stat-value"><%= Math.round(metadata.averageLineCount) %></div>
+        <div class="stat-label">Avg Lines</div>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</div>
